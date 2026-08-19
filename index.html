@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Calendario de Tareas del Hogar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  .viz-root {
+    color-scheme: light;
+    --surface-1:      #fffcf7;
+    --page-plane:     #f1eae1;
+    --text-primary:   #2b2420;
+    --text-secondary: #6b5f54;
+    --text-muted:     #9c9086;
+    --gridline:       #e7dfd2;
+    --baseline:       #d8cebe;
+    --border:         rgba(43,36,32,0.09);
+    --accent:         #f0982e;
+    --accent-ink:     #7a4c0f;
+    --danger:         #b0523a;
+    --series-1: #f0982e; --series-2: #b0523a; --series-3: #7c9a3f; --series-4: #85335f;
+    --series-5: #d97862; --series-6: #8f7dc7; --series-7: #1e9c82; --series-8: #2e6dae;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .viz-root {
+      color-scheme: dark;
+      --surface-1:      #201c18;
+      --page-plane:     #14110d;
+      --text-primary:   #f5efe8;
+      --text-secondary: #c9beb2;
+      --text-muted:     #8c8175;
+      --gridline:       #332c24;
+      --baseline:       #4a4038;
+      --border:         rgba(245,239,232,0.10);
+      --accent:         #c4700f;
+      --accent-ink:     #ffd9a0;
+      --danger:         #a6301c;
+      --series-1: #c4700f; --series-2: #a6301c; --series-3: #7c9a3f; --series-4: #9c3e70;
+      --series-5: #c86348; --series-6: #8f7dc7; --series-7: #1e9c82; --series-8: #2e6dae;
+    }
+  }
+  :root[data-theme="dark"] .viz-root {
+    color-scheme: dark;
+    --surface-1:      #201c18;
+    --page-plane:     #14110d;
+    --text-primary:   #f5efe8;
+    --text-secondary: #c9beb2;
+    --text-muted:     #8c8175;
+    --gridline:       #332c24;
+    --baseline:       #4a4038;
+    --border:         rgba(245,239,232,0.10);
+    --accent:         #c4700f;
+    --accent-ink:     #ffd9a0;
+    --danger:         #a6301c;
+    --series-1: #c4700f; --series-2: #a6301c; --series-3: #7c9a3f; --series-4: #9c3e70;
+    --series-5: #c86348; --series-6: #8f7dc7; --series-7: #1e9c82; --series-8: #2e6dae;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font-family: -apple-system, system-ui, "Segoe UI", sans-serif;
+    background: var(--page-plane);
+    color: var(--text-primary);
+    display: flex;
+    justify-content: center;
+  }
+  .heading-font { font-family: "Quicksand", -apple-system, system-ui, sans-serif; }
+  .phone {
+    width: 100%;
+    max-width: 420px;
+    min-height: 100vh;
+    background: var(--page-plane);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  @media (min-width: 460px) {
+    .phone {
+      min-height: 844px;
+      margin: 24px 0;
+      border-radius: 36px;
+      overflow: hidden;
+      box-shadow: 0 0 0 8px #111, 0 20px 50px rgba(0,0,0,0.35);
+    }
+  }
+
+  .view { display: none; flex: 1; overflow-y: auto; padding: 14px 16px 90px; -webkit-overflow-scrolling: touch; }
+  .view.active { display: block; }
+
+  .top-header { padding: 8px 2px 16px; }
+  .top-header h1 { font-family: "Quicksand", -apple-system, system-ui, sans-serif; font-size: 24px; font-weight: 700; margin: 0; }
+  .top-header .subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 3px; }
+
+  .banner {
+    margin: 0 0 16px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--surface-1);
+    color: var(--text-secondary);
+    font-size: 12.5px;
+    line-height: 1.5;
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    box-shadow: 0 2px 10px rgba(122,76,15,0.06);
+  }
+  .banner strong { color: var(--text-primary); }
+  .banner .close-x { margin-left: auto; flex-shrink: 0; background: none; border: none; color: var(--text-muted); font-size: 15px; cursor: pointer; padding: 0 2px; }
+
+  /* ---- Calendar ---- */
+  .cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .cal-nav .month-label { font-family: "Quicksand", -apple-system, system-ui, sans-serif; font-size: 18px; font-weight: 700; text-transform: capitalize; }
+  .cal-nav-btns { display: flex; gap: 6px; align-items: center; }
+  .icon-btn {
+    width: 32px; height: 32px; border-radius: 50%; border: none; background: var(--surface-1);
+    display: flex; align-items: center; justify-content: center; color: var(--accent-ink);
+    cursor: pointer; box-shadow: 0 2px 6px rgba(122,76,15,0.10);
+  }
+  .icon-btn svg { width: 16px; height: 16px; }
+  .today-btn {
+    font-size: 12.5px; font-weight: 700; color: var(--accent-ink); background: var(--surface-1);
+    border: none; border-radius: 999px; padding: 7px 14px; cursor: pointer;
+    box-shadow: 0 2px 6px rgba(122,76,15,0.10);
+  }
+
+  .weekday-row { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 6px; }
+  .weekday-row div { text-align: center; font-size: 11px; font-weight: 700; color: var(--text-muted); padding: 4px 0; }
+
+  .day-grid { display: grid; grid-template-columns: repeat(7, 1fr); grid-auto-rows: 1fr; gap: 4px; }
+  .day-cell {
+    aspect-ratio: 1 / 1;
+    border-radius: 16px;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+    padding: 5px 2px 3px;
+    cursor: pointer;
+    position: relative;
+  }
+  .day-cell.outside { opacity: 0.35; }
+  .day-cell .num {
+    font-size: 13px; font-weight: 600; width: 22px; height: 22px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .day-cell.today .num { background: var(--accent); color: #fff; font-weight: 700; box-shadow: 0 3px 8px rgba(240,152,46,0.4); }
+  .day-cell .dots { display: flex; gap: 2px; margin-top: 3px; flex-wrap: wrap; justify-content: center; align-items: center; height: 8px; }
+  .day-cell .dot { width: 5px; height: 5px; border-radius: 50%; }
+  .day-cell .more { font-size: 8px; color: var(--text-muted); font-weight: 700; }
+
+  /* ---- Modal ---- */
+  .sheet-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: none;
+    align-items: flex-end; justify-content: center; z-index: 50;
+  }
+  .sheet-backdrop.open { display: flex; }
+  .sheet {
+    width: 100%; max-width: 420px; background: var(--page-plane);
+    border-radius: 26px 26px 0 0; padding: 10px 18px 26px; max-height: 82vh; overflow-y: auto;
+  }
+  .sheet-handle { width: 36px; height: 5px; border-radius: 3px; background: var(--gridline); margin: 4px auto 12px; }
+  .sheet-title { font-family: "Quicksand", -apple-system, system-ui, sans-serif; font-size: 17px; font-weight: 700; margin-bottom: 2px; }
+  .sheet-sub { font-size: 12.5px; color: var(--text-secondary); margin-bottom: 14px; }
+
+  .entry-row {
+    display: flex; align-items: center; gap: 10px; background: var(--surface-1);
+    border: 1px solid var(--border); border-radius: 16px; padding: 10px 12px; margin-bottom: 8px;
+  }
+  .avatar {
+    width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; color: #fff;
+    font-size: 12px; font-weight: 700;
+  }
+  .entry-info { flex: 1; min-width: 0; }
+  .entry-task { font-size: 13.5px; font-weight: 600; }
+  .entry-person { font-size: 12px; color: var(--text-secondary); }
+  .entry-del { background: none; border: none; color: var(--text-muted); font-size: 18px; cursor: pointer; padding: 4px 6px; }
+
+  .empty-hint { font-size: 13px; color: var(--text-muted); text-align: center; padding: 18px 8px; }
+
+  .add-form { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 14px; }
+  .field-label { font-size: 11.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; margin: 10px 0 5px; }
+  select, input[type=text] {
+    width: 100%; padding: 11px 14px; border-radius: 14px; border: 1px solid var(--border);
+    background: var(--surface-1); color: var(--text-primary); font-size: 14px; font-family: inherit;
+  }
+  .btn-primary {
+    width: 100%; margin-top: 16px; padding: 13px; border-radius: 999px; border: none;
+    background: var(--accent); color: #fff; font-size: 15px; font-weight: 700; cursor: pointer;
+    box-shadow: 0 6px 16px rgba(240,152,46,0.35);
+  }
+  .btn-primary:disabled { opacity: 0.4; box-shadow: none; }
+  .setup-hint {
+    text-align: center; font-size: 13px; color: var(--text-secondary); padding: 16px;
+    background: var(--surface-1); border-radius: 16px; margin-top: 12px; line-height: 1.6;
+  }
+  .setup-hint b { color: var(--accent-ink); }
+
+  /* ---- Stats ---- */
+  .segmented { display: flex; background: var(--gridline); border-radius: 999px; padding: 3px; margin-bottom: 14px; }
+  .segmented button {
+    flex: 1; border: none; background: none; padding: 8px 0; font-size: 13px; font-weight: 700;
+    color: var(--text-secondary); border-radius: 999px; cursor: pointer;
+  }
+  .segmented button.active { background: var(--surface-1); color: var(--text-primary); box-shadow: 0 2px 6px rgba(43,36,32,0.10); }
+
+  .period-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .period-nav .label { font-size: 13.5px; font-weight: 700; text-transform: capitalize; }
+
+  .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 20px; padding: 16px 18px; margin-bottom: 16px; box-shadow: 0 2px 10px rgba(122,76,15,0.05); }
+  .card-title { font-family: "Quicksand", -apple-system, system-ui, sans-serif; font-size: 14px; font-weight: 700; margin: 0 0 14px; }
+
+  /* Horizontal pill-ended bars */
+  .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .bar-row:last-child { margin-bottom: 0; }
+  .bar-label { width: 78px; font-size: 12.5px; color: var(--text-secondary); flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar-track { flex: 1; background: var(--gridline); border-radius: 999px; height: 14px; }
+  .bar-fill { height: 100%; border-radius: 999px; min-width: 14px; }
+  .bar-count { width: 22px; text-align: right; font-size: 13px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  thead th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); font-weight: 700; padding: 6px 4px; border-bottom: 1px solid var(--gridline); }
+  tbody td { padding: 9px 4px; border-bottom: 1px solid var(--gridline); }
+  tbody tr:last-child td { border-bottom: none; }
+  td.num-col, th.num-col { text-align: right; }
+
+  /* ---- Settings ---- */
+  .settings-section { margin-bottom: 22px; }
+  .settings-section .card-title { display: flex; align-items: center; justify-content: space-between; }
+  .list-row {
+    display: flex; align-items: center; gap: 10px; padding: 11px 2px; border-bottom: 1px solid var(--gridline);
+  }
+  .list-row:last-child { border-bottom: none; }
+  .list-row .swatch { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+  .list-row input[type=text] { flex: 1; border: none; background: none; padding: 4px 0; font-size: 14px; color: var(--text-primary); }
+  .list-row input[type=text]:focus { outline: none; border-bottom: 1px solid var(--accent); }
+  .row-del { background: none; border: none; color: var(--text-muted); font-size: 16px; cursor: pointer; padding: 2px 6px; }
+  .add-row { display: flex; gap: 8px; margin-top: 10px; }
+  .add-row input { flex: 1; }
+  .add-row button {
+    background: var(--accent); color: #fff; border: none; border-radius: 999px; width: 40px; height: 40px;
+    font-size: 20px; font-weight: 600; cursor: pointer; line-height: 1; flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(240,152,46,0.35);
+  }
+  .empty-list { font-size: 12.5px; color: var(--text-muted); padding: 6px 2px; }
+
+  /* ---- Bottom nav ---- */
+  .tabbar {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    display: flex; background: var(--surface-1); border-top: 1px solid var(--border);
+    padding: 6px 0 max(6px, env(safe-area-inset-bottom));
+  }
+  .tab-btn {
+    flex: 1; background: none; border: none; display: flex; flex-direction: column; align-items: center;
+    gap: 2px; color: var(--text-muted); font-size: 10.5px; font-weight: 600; cursor: pointer; padding: 4px 0;
+  }
+  .tab-btn svg { width: 22px; height: 22px; }
+  .tab-btn.active { color: var(--accent-ink); }
+
+  .fab {
+    position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 74px);
+    transform: translateX(-50%);
+    width: 56px; height: 56px; border-radius: 50%; border: none;
+    background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 16px rgba(122,76,15,0.35);
+    cursor: pointer; z-index: 20;
+  }
+  .fab svg { width: 24px; height: 24px; }
+</style>
+</head>
+<body>
+<div class="phone viz-root">
+
+  <!-- HOME -->
+  <div class="view active" id="view-home">
+    <div class="top-header">
+      <h1>Inicio</h1>
+      <div class="subtitle">Toca un día para ver o añadir tareas</div>
+    </div>
+
+    <div class="banner" id="home-banner">
+      <span><strong>Datos de ejemplo.</strong> Edita las tareas y personas en Ajustes cuando quieras — esto es solo para mostrar cómo se ve.</span>
+      <button class="close-x" onclick="document.getElementById('home-banner').style.display='none'">✕</button>
+    </div>
+
+    <div class="cal-nav">
+      <button class="icon-btn" onclick="shiftMonth(-1)">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="month-label" id="month-label"></div>
+      <div class="cal-nav-btns">
+        <button class="today-btn" onclick="goToday()">Hoy</button>
+        <button class="icon-btn" onclick="shiftMonth(1)">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="weekday-row">
+      <div>L</div><div>M</div><div>X</div><div>J</div><div>V</div><div>S</div><div>D</div>
+    </div>
+    <div class="day-grid" id="day-grid"></div>
+  </div>
+
+  <!-- STATS -->
+  <div class="view" id="view-stats">
+    <div class="top-header">
+      <h1>Estadísticas</h1>
+      <div class="subtitle">Quién hizo qué, y cuántas veces</div>
+    </div>
+
+    <div class="field-label" style="margin-top:0;">Tarea</div>
+    <select id="stats-task-filter" style="margin-bottom:14px;">
+      <option value="all">Todas las tareas</option>
+    </select>
+
+    <div class="segmented" id="stats-segmented">
+      <button data-p="week" class="active">Semana</button>
+      <button data-p="month">Mes</button>
+      <button data-p="year">Año</button>
+    </div>
+
+    <div class="period-nav">
+      <button class="icon-btn" onclick="shiftStatsPeriod(-1)">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="label" id="period-label"></div>
+      <button class="icon-btn" onclick="shiftStatsPeriod(1)">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+
+    <div class="card">
+      <div class="card-title" id="stats-bars-title">Total por persona</div>
+      <div id="stats-bars"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" id="stats-table-title">Detalle por tarea</div>
+      <table>
+        <thead><tr><th>Persona</th><th id="stats-th-task">Tarea</th><th class="num-col">Veces</th></tr></thead>
+        <tbody id="stats-table-body"></tbody>
+      </table>
+      <div id="stats-empty" class="empty-hint" style="display:none;">Sin tareas registradas en este período.</div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="view" id="view-settings">
+    <div class="top-header">
+      <h1>Ajustes</h1>
+      <div class="subtitle">Configura las tareas y las personas</div>
+    </div>
+
+    <div class="settings-section">
+      <div class="card">
+        <div class="card-title">Tareas</div>
+        <div id="tasks-list"></div>
+        <div class="add-row">
+          <input type="text" id="new-task-input" placeholder="Nueva tarea, p. ej. Regar las plantas">
+          <button onclick="addTask()">+</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="card">
+        <div class="card-title">Personas</div>
+        <div id="people-list"></div>
+        <div class="add-row">
+          <input type="text" id="new-person-input" placeholder="Nueva persona, p. ej. Papá">
+          <button onclick="addPerson()">+</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Day sheet modal -->
+  <div class="sheet-backdrop" id="sheet-backdrop" onclick="if(event.target===this) closeSheet()">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title" id="sheet-title"></div>
+      <div class="sheet-sub" id="sheet-sub"></div>
+      <div id="sheet-entries"></div>
+      <div id="sheet-add-area"></div>
+    </div>
+  </div>
+
+  <button class="fab" id="fab-btn" aria-label="Añadir tarea de hoy">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>
+  </button>
+
+  <div class="tabbar">
+    <button class="tab-btn active" data-tab="home" onclick="switchTab('home')">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M4 11.5L12 4l8 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 10v9h12v-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Inicio
+    </button>
+    <button class="tab-btn" data-tab="stats" onclick="switchTab('stats')">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M5 20V10M12 20V4M19 20v-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Estadísticas
+    </button>
+    <button class="tab-btn" data-tab="settings" onclick="switchTab('settings')">
+      <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.7 1.7 0 00.34 1.87l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.7 1.7 0 00-1.87-.34 1.7 1.7 0 00-1 1.55V21a2 2 0 11-4 0v-.09a1.7 1.7 0 00-1-1.55 1.7 1.7 0 00-1.87.34l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.7 1.7 0 00.34-1.87 1.7 1.7 0 00-1.55-1H3a2 2 0 110-4h.09a1.7 1.7 0 001.55-1 1.7 1.7 0 00-.34-1.87l-.06-.06a2 2 0 112.83-2.83l.06.06a1.7 1.7 0 001.87.34H9a1.7 1.7 0 001-1.55V3a2 2 0 114 0v.09a1.7 1.7 0 001 1.55 1.7 1.7 0 001.87-.34l.06-.06a2 2 0 112.83 2.83l-.06.06a1.7 1.7 0 00-.34 1.87V9a1.7 1.7 0 001.55 1H21a2 2 0 110 4h-.09a1.7 1.7 0 00-1.55 1z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      Ajustes
+    </button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var MONTHS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  var SLOT_COLORS = ['--series-1','--series-2','--series-3','--series-4','--series-5','--series-6','--series-7','--series-8'];
+  var FALLBACK_COLOR = '#898781';
+
+  var today = new Date();
+  today.setHours(0,0,0,0);
+
+  var state = {
+    tasks: [
+      { id: 'task-1', name: 'Lavar los platos' },
+      { id: 'task-2', name: 'Sacar la basura' },
+      { id: 'task-3', name: 'Limpiar el baño' }
+    ],
+    people: [
+      { id: 'person-1', name: 'Mamá' },
+      { id: 'person-2', name: 'Papá' }
+    ],
+    entries: [],
+    calYear: today.getFullYear(),
+    calMonth: today.getMonth(),
+    statsPeriod: 'week',
+    statsTaskFilter: 'all',
+    statsAnchor: new Date(today),
+    activeSheetDate: null
+  };
+
+  // seed a few sample entries across the current week for demo purposes
+  (function seed() {
+    function iso(d){ return toISO(d); }
+    var d0 = new Date(today);
+    state.entries.push({ id: 'e1', date: iso(d0), taskId: 'task-1', personId: 'person-1' });
+    var d1 = new Date(today); d1.setDate(d1.getDate()-1);
+    state.entries.push({ id: 'e2', date: iso(d1), taskId: 'task-2', personId: 'person-2' });
+    var d2 = new Date(today); d2.setDate(d2.getDate()-2);
+    state.entries.push({ id: 'e3', date: iso(d2), taskId: 'task-1', personId: 'person-2' });
+    var d3 = new Date(today); d3.setDate(d3.getDate()-3);
+    state.entries.push({ id: 'e4', date: iso(d3), taskId: 'task-3', personId: 'person-1' });
+  })();
+
+  function toISO(d) {
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+  function uid(prefix) { return prefix + '-' + Math.floor(Math.random()*1e9); }
+  function personById(id) { return state.people.find(function(p){ return p.id === id; }); }
+  function taskById(id) { return state.tasks.find(function(t){ return t.id === id; }); }
+  var vizRootEl = null;
+  function personColor(id) {
+    var idx = state.people.findIndex(function(p){ return p.id === id; });
+    if (idx < 0 || idx >= SLOT_COLORS.length) return FALLBACK_COLOR;
+    if (!vizRootEl) vizRootEl = document.querySelector('.viz-root');
+    return getComputedStyle(vizRootEl).getPropertyValue(SLOT_COLORS[idx]).trim() || FALLBACK_COLOR;
+  }
+  function initials(name) {
+    return (name || '?').trim().split(/\s+/).slice(0,2).map(function(w){ return w[0]; }).join('').toUpperCase();
+  }
+
+  document.getElementById('fab-btn').addEventListener('click', function () {
+    switchTab('home');
+    openSheet(today);
+  });
+
+  // ---------- Tabs ----------
+  window.switchTab = function (tab) {
+    ['home','stats','settings'].forEach(function (t) {
+      document.getElementById('view-' + t).classList.toggle('active', t === tab);
+    });
+    document.querySelectorAll('.tab-btn').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.tab === tab);
+    });
+    document.getElementById('fab-btn').style.display = (tab === 'home') ? 'flex' : 'none';
+    if (tab === 'stats') renderStats();
+    if (tab === 'settings') renderSettings();
+  };
+
+  // ---------- Calendar ----------
+  window.shiftMonth = function (delta) {
+    state.calMonth += delta;
+    if (state.calMonth < 0) { state.calMonth = 11; state.calYear--; }
+    if (state.calMonth > 11) { state.calMonth = 0; state.calYear++; }
+    renderCalendar();
+  };
+  window.goToday = function () {
+    state.calYear = today.getFullYear();
+    state.calMonth = today.getMonth();
+    renderCalendar();
+  };
+
+  function renderCalendar() {
+    document.getElementById('month-label').textContent = MONTHS[state.calMonth] + ' ' + state.calYear;
+    var grid = document.getElementById('day-grid');
+    grid.innerHTML = '';
+
+    var firstOfMonth = new Date(state.calYear, state.calMonth, 1);
+    var startOffset = (firstOfMonth.getDay() + 6) % 7; // Monday = 0
+    var gridStart = new Date(firstOfMonth);
+    gridStart.setDate(gridStart.getDate() - startOffset);
+
+    for (var i = 0; i < 42; i++) {
+      var d = new Date(gridStart);
+      d.setDate(d.getDate() + i);
+      grid.appendChild(buildDayCell(d));
+    }
+  }
+
+  function buildDayCell(d) {
+    var cell = document.createElement('div');
+    cell.className = 'day-cell';
+    if (d.getMonth() !== state.calMonth) cell.classList.add('outside');
+    if (d.getTime() === today.getTime()) cell.classList.add('today');
+
+    var num = document.createElement('div');
+    num.className = 'num';
+    num.textContent = d.getDate();
+    cell.appendChild(num);
+
+    var dayEntries = state.entries.filter(function (e) { return e.date === toISO(d); });
+    var dots = document.createElement('div');
+    dots.className = 'dots';
+    dayEntries.slice(0, 3).forEach(function (e) {
+      var dot = document.createElement('span');
+      dot.className = 'dot';
+      dot.style.background = personColor(e.personId);
+      dots.appendChild(dot);
+    });
+    if (dayEntries.length > 3) {
+      var more = document.createElement('span');
+      more.className = 'more';
+      more.textContent = '+' + (dayEntries.length - 3);
+      dots.appendChild(more);
+    }
+    cell.appendChild(dots);
+
+    cell.onclick = function () { openSheet(d); };
+    return cell;
+  }
+
+  // ---------- Day sheet ----------
+  function openSheet(d) {
+    state.activeSheetDate = toISO(d);
+    var sheetTitleText = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+    document.getElementById('sheet-title').textContent =
+      sheetTitleText.charAt(0).toUpperCase() + sheetTitleText.slice(1);
+    renderSheet();
+    document.getElementById('sheet-backdrop').classList.add('open');
+  }
+  window.closeSheet = function () {
+    document.getElementById('sheet-backdrop').classList.remove('open');
+    state.activeSheetDate = null;
+  };
+
+  function renderSheet() {
+    var iso = state.activeSheetDate;
+    var dayEntries = state.entries.filter(function (e) { return e.date === iso; });
+
+    document.getElementById('sheet-sub').textContent =
+      dayEntries.length ? dayEntries.length + (dayEntries.length === 1 ? ' tarea registrada' : ' tareas registradas') : 'Sin tareas registradas';
+
+    var list = document.getElementById('sheet-entries');
+    list.innerHTML = '';
+    if (!dayEntries.length) {
+      var empty = document.createElement('div');
+      empty.className = 'empty-hint';
+      empty.textContent = 'Todavía no hay nada este día.';
+      list.appendChild(empty);
+    } else {
+      dayEntries.forEach(function (e) {
+        var t = taskById(e.taskId), p = personById(e.personId);
+        var row = document.createElement('div');
+        row.className = 'entry-row';
+        row.innerHTML =
+          '<div class="avatar" style="background:' + personColor(e.personId) + '">' + initials(p ? p.name : '?') + '</div>' +
+          '<div class="entry-info">' +
+            '<div class="entry-task">' + (t ? t.name : 'Tarea eliminada') + '</div>' +
+            '<div class="entry-person">' + (p ? p.name : 'Persona eliminada') + '</div>' +
+          '</div>' +
+          '<button class="entry-del" data-id="' + e.id + '">✕</button>';
+        row.querySelector('.entry-del').onclick = function () { deleteEntry(e.id); };
+        list.appendChild(row);
+      });
+    }
+
+    var addArea = document.getElementById('sheet-add-area');
+    addArea.innerHTML = '';
+    if (!state.tasks.length || !state.people.length) {
+      var hint = document.createElement('div');
+      hint.className = 'setup-hint';
+      hint.innerHTML = 'Primero añade al menos <b>una tarea</b> y <b>una persona</b> en la pestaña Ajustes.';
+      addArea.appendChild(hint);
+      return;
+    }
+
+    var form = document.createElement('div');
+    form.className = 'add-form';
+    form.innerHTML =
+      '<div class="field-label">Tarea</div>' +
+      '<select id="sel-task">' + state.tasks.map(function (t) { return '<option value="' + t.id + '">' + t.name + '</option>'; }).join('') + '</select>' +
+      '<div class="field-label">Persona</div>' +
+      '<select id="sel-person">' + state.people.map(function (p) { return '<option value="' + p.id + '">' + p.name + '</option>'; }).join('') + '</select>' +
+      '<button class="btn-primary" id="btn-save-entry">Añadir a este día</button>';
+    addArea.appendChild(form);
+    document.getElementById('btn-save-entry').onclick = function () {
+      var taskId = document.getElementById('sel-task').value;
+      var personId = document.getElementById('sel-person').value;
+      state.entries.push({ id: uid('e'), date: iso, taskId: taskId, personId: personId });
+      renderSheet();
+      renderCalendar();
+    };
+  }
+
+  function deleteEntry(id) {
+    state.entries = state.entries.filter(function (e) { return e.id !== id; });
+    renderSheet();
+    renderCalendar();
+  }
+
+  // ---------- Stats ----------
+  document.getElementById('stats-segmented').addEventListener('click', function (ev) {
+    var btn = ev.target.closest('button[data-p]');
+    if (!btn) return;
+    state.statsPeriod = btn.dataset.p;
+    document.querySelectorAll('#stats-segmented button').forEach(function (b) { b.classList.toggle('active', b === btn); });
+    renderStats();
+  });
+
+  document.getElementById('stats-task-filter').addEventListener('change', function (ev) {
+    state.statsTaskFilter = ev.target.value;
+    renderStats();
+  });
+
+  function renderStatsTaskFilterOptions() {
+    var sel = document.getElementById('stats-task-filter');
+    var prevValue = state.statsTaskFilter;
+    sel.innerHTML = '<option value="all">Todas las tareas</option>' +
+      state.tasks.map(function (t) { return '<option value="' + t.id + '">' + t.name + '</option>'; }).join('');
+    var stillValid = prevValue === 'all' || state.tasks.some(function (t) { return t.id === prevValue; });
+    if (!stillValid) { state.statsTaskFilter = 'all'; prevValue = 'all'; }
+    sel.value = prevValue;
+  }
+
+  window.shiftStatsPeriod = function (delta) {
+    var d = new Date(state.statsAnchor);
+    if (state.statsPeriod === 'week') d.setDate(d.getDate() + delta * 7);
+    else if (state.statsPeriod === 'month') d.setMonth(d.getMonth() + delta);
+    else d.setFullYear(d.getFullYear() + delta);
+    state.statsAnchor = d;
+    renderStats();
+  };
+
+  function periodRange() {
+    var a = new Date(state.statsAnchor);
+    if (state.statsPeriod === 'week') {
+      var offset = (a.getDay() + 6) % 7;
+      var start = new Date(a); start.setDate(start.getDate() - offset);
+      var end = new Date(start); end.setDate(end.getDate() + 6);
+      return { start: start, end: end, label: fmtShort(start) + ' – ' + fmtShort(end) };
+    }
+    if (state.statsPeriod === 'month') {
+      var start = new Date(a.getFullYear(), a.getMonth(), 1);
+      var end = new Date(a.getFullYear(), a.getMonth() + 1, 0);
+      return { start: start, end: end, label: MONTHS[a.getMonth()] + ' ' + a.getFullYear() };
+    }
+    var start = new Date(a.getFullYear(), 0, 1);
+    var end = new Date(a.getFullYear(), 11, 31);
+    return { start: start, end: end, label: String(a.getFullYear()) };
+  }
+  function fmtShort(d) { return d.getDate() + ' ' + MONTHS[d.getMonth()].slice(0,3); }
+
+  function renderStats() {
+    renderStatsTaskFilterOptions();
+    var filterTask = state.statsTaskFilter !== 'all' ? taskById(state.statsTaskFilter) : null;
+
+    var range = periodRange();
+    document.getElementById('period-label').textContent = range.label;
+    var startISO = toISO(range.start), endISO = toISO(range.end);
+    var inRange = state.entries.filter(function (e) { return e.date >= startISO && e.date <= endISO; });
+    if (filterTask) inRange = inRange.filter(function (e) { return e.taskId === filterTask.id; });
+
+    // totals per person, in fixed settings order (keeps categorical color adjacency valid)
+    document.getElementById('stats-bars-title').textContent =
+      'Total por persona' + (filterTask ? ' — ' + filterTask.name : '');
+    var bars = document.getElementById('stats-bars');
+    bars.innerHTML = '';
+    if (!state.people.length) {
+      bars.innerHTML = '<div class="empty-hint">Añade personas en Ajustes para ver estadísticas.</div>';
+    } else {
+      var counts = state.people.map(function (p) {
+        return { person: p, count: inRange.filter(function (e) { return e.personId === p.id; }).length };
+      });
+      var max = Math.max.apply(null, counts.map(function (c) { return c.count; }).concat([1]));
+      counts.forEach(function (c) {
+        var row = document.createElement('div');
+        row.className = 'bar-row';
+        var pct = c.count > 0 ? Math.max(6, (c.count / max) * 100) : 0;
+        row.innerHTML =
+          '<div class="bar-label">' + c.person.name + '</div>' +
+          '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%; background:' + personColor(c.person.id) + '"></div></div>' +
+          '<div class="bar-count">' + c.count + '</div>';
+        bars.appendChild(row);
+      });
+    }
+
+    // detail: when a task is selected, show Persona | Veces for that task only;
+    // otherwise break down by person x task, sorted by count desc
+    document.getElementById('stats-table-title').textContent = filterTask ? 'Detalle: ' + filterTask.name : 'Detalle por tarea';
+    document.getElementById('stats-th-task').style.display = filterTask ? 'none' : '';
+
+    var rows;
+    if (filterTask) {
+      rows = state.people.map(function (p) {
+        return { person: p.name, task: null, count: inRange.filter(function (e) { return e.personId === p.id; }).length };
+      }).filter(function (r) { return r.count > 0; })
+        .sort(function (a, b) { return b.count - a.count; });
+    } else {
+      var tally = {};
+      inRange.forEach(function (e) {
+        var key = e.personId + '|' + e.taskId;
+        tally[key] = (tally[key] || 0) + 1;
+      });
+      rows = Object.keys(tally).map(function (key) {
+        var parts = key.split('|');
+        var p = personById(parts[0]), t = taskById(parts[1]);
+        return { person: p ? p.name : '—', task: t ? t.name : '—', count: tally[key] };
+      }).sort(function (a, b) { return b.count - a.count; });
+    }
+
+    var tbody = document.getElementById('stats-table-body');
+    tbody.innerHTML = '';
+    document.getElementById('stats-empty').style.display = rows.length ? 'none' : 'block';
+    rows.forEach(function (r) {
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + r.person + '</td>' +
+        (filterTask ? '' : '<td>' + r.task + '</td>') +
+        '<td class="num-col">' + r.count + '</td>';
+      tbody.appendChild(tr);
+    });
+  }
+
+  // ---------- Settings ----------
+  window.addTask = function () {
+    var input = document.getElementById('new-task-input');
+    var name = input.value.trim();
+    if (!name) return;
+    state.tasks.push({ id: uid('task'), name: name });
+    input.value = '';
+    renderSettings();
+  };
+  window.addPerson = function () {
+    var input = document.getElementById('new-person-input');
+    var name = input.value.trim();
+    if (!name) return;
+    state.people.push({ id: uid('person'), name: name });
+    input.value = '';
+    renderSettings();
+  };
+
+  function renderSettings() {
+    var taskList = document.getElementById('tasks-list');
+    taskList.innerHTML = '';
+    if (!state.tasks.length) {
+      taskList.innerHTML = '<div class="empty-list">Todavía no hay tareas. Añade la primera abajo.</div>';
+    }
+    state.tasks.forEach(function (t) {
+      var row = document.createElement('div');
+      row.className = 'list-row';
+      row.innerHTML =
+        '<input type="text" value="' + escapeHtml(t.name) + '">' +
+        '<button class="row-del">🗑</button>';
+      var inp = row.querySelector('input');
+      inp.oninput = function () { t.name = inp.value; };
+      inp.onblur = function () { if (!t.name.trim()) { t.name = 'Sin nombre'; renderSettings(); } };
+      row.querySelector('.row-del').onclick = function () {
+        state.tasks = state.tasks.filter(function (x) { return x.id !== t.id; });
+        state.entries = state.entries.filter(function (e) { return e.taskId !== t.id; });
+        renderSettings(); renderCalendar();
+      };
+      taskList.appendChild(row);
+    });
+
+    var peopleList = document.getElementById('people-list');
+    peopleList.innerHTML = '';
+    if (!state.people.length) {
+      peopleList.innerHTML = '<div class="empty-list">Todavía no hay personas. Añade la primera abajo.</div>';
+    }
+    state.people.forEach(function (p, idx) {
+      var row = document.createElement('div');
+      row.className = 'list-row';
+      var color = idx < SLOT_COLORS.length ? getComputedStyle(vizRootEl || document.querySelector('.viz-root')).getPropertyValue(SLOT_COLORS[idx]).trim() : FALLBACK_COLOR;
+      row.innerHTML =
+        '<span class="swatch" style="background:' + color + '"></span>' +
+        '<input type="text" value="' + escapeHtml(p.name) + '">' +
+        '<button class="row-del">🗑</button>';
+      var inp = row.querySelector('input');
+      inp.oninput = function () { p.name = inp.value; };
+      inp.onblur = function () { if (!p.name.trim()) { p.name = 'Sin nombre'; renderSettings(); } };
+      row.querySelector('.row-del').onclick = function () {
+        state.people = state.people.filter(function (x) { return x.id !== p.id; });
+        state.entries = state.entries.filter(function (e) { return e.personId !== p.id; });
+        renderSettings(); renderCalendar();
+      };
+      peopleList.appendChild(row);
+    });
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  renderCalendar();
+})();
+</script>
+</body>
+</html>
